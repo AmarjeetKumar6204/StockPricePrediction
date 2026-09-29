@@ -146,8 +146,38 @@ def predict_stock(ticker: str, model, n_forecast_days: int = 30) -> PredictionRe
     )
 
 
+def _patch_h5_model_config(path):
+    """Strip keys unsupported by the installed Keras (e.g. quantization_config)."""
+    import json
+    import h5py
+
+    unsupported_keys = {"quantization_config"}
+
+    def _clean(obj):
+        if isinstance(obj, dict):
+            for key in unsupported_keys:
+                obj.pop(key, None)
+            for v in obj.values():
+                _clean(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                _clean(item)
+
+    with h5py.File(str(path), "r+") as f:
+        raw = f.attrs.get("model_config")
+        if raw is None:
+            return
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        cfg = json.loads(raw)
+        _clean(cfg)
+        f.attrs["model_config"] = json.dumps(cfg).encode("utf-8")
+
+
 def load_prediction_model():
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"Model file not found at {MODEL_PATH}.")
 
+    _patch_h5_model_config(MODEL_PATH)
     return load_model(MODEL_PATH, compile=False)
+

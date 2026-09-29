@@ -25,14 +25,26 @@ def get_prediction_data(ticker: str, n_forecast_days: int = 30):
     return predict_stock(ticker, get_model(), n_forecast_days=n_forecast_days)
 
 
-def plot_close_and_averages(history):
+def currency_info(ticker: str) -> tuple[str, str]:
+    """Return (symbol, name) based on ticker suffix.
+
+    Indian exchanges (.NS for NSE, .BO for BSE) use ₹ / INR.
+    Everything else defaults to $ / USD.
+    """
+    t = ticker.strip().upper()
+    if t.endswith(".NS") or t.endswith(".BO"):
+        return "\u20B9", "INR"
+    return "$", "USD"
+
+
+def plot_close_and_averages(history, currency_name: str = "USD"):
     fig, ax = plt.subplots(figsize=(12, 5))
     ax.plot(history["Date"], history["Close"], label="Close Price", linewidth=2, color="#0f766e")
     ax.plot(history["Date"], history["MA100"], label="100-Day MA", linewidth=1.6, color="#ea580c")
     ax.plot(history["Date"], history["MA200"], label="200-Day MA", linewidth=1.6, color="#7c2d12")
     ax.set_title("Closing Price with Moving Averages")
     ax.set_xlabel("Date")
-    ax.set_ylabel("Price (USD)")
+    ax.set_ylabel(f"Price ({currency_name})")
     ax.tick_params(axis="x", colors="#000000")
     ax.tick_params(axis="y", colors="#000000")
     ax.xaxis.label.set_color("#000000")
@@ -46,7 +58,7 @@ def plot_close_and_averages(history):
     return fig
 
 
-def build_candlestick_chart(history, ticker: str):
+def build_candlestick_chart(history, ticker: str, currency_name: str = "USD"):
     recent = history.tail(120).copy()
     fig = go.Figure(
         data=[
@@ -78,26 +90,23 @@ def build_candlestick_chart(history, ticker: str):
     )
     fig.update_layout(
         title=f"{ticker} Candlestick View",
-        margin={"l": 20, "r": 20, "t": 55, "b": 20},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        title_font={"color": "#1f1a17"},
+        margin={"l": 40, "r": 20, "t": 55, "b": 40},
+        paper_bgcolor="#fffaf4",
+        plot_bgcolor="#fffaf4",
         xaxis_title="Date",
-        yaxis_title="Price (USD)",
+        yaxis_title=f"Price ({currency_name})",
         xaxis_rangeslider_visible=False,
-        legend={"orientation": "h", "y": 1.08, "x": 0},
-        font={"color": "#000000"},
+        legend={"orientation": "h", "y": 1.08, "x": 0, "font": {"color": "#1f1a17"}},
+        font={"color": "#1f1a17"},
         height=430,
     )
-    fig.update_layout(
-        title_font={"color": "#000000"},
-        legend_font={"color": "#000000"},
-    )
-    fig.update_xaxes(showgrid=False, tickfont={"color": "#000000"}, title_font={"color": "#000000"})
-    fig.update_yaxes(gridcolor="rgba(31, 26, 23, 0.08)", tickfont={"color": "#000000"}, title_font={"color": "#000000"})
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(31, 26, 23, 0.06)", tickfont={"color": "#1f1a17"}, title_font={"color": "#1f1a17"})
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(31, 26, 23, 0.10)", tickfont={"color": "#1f1a17"}, title_font={"color": "#1f1a17"})
     return fig
 
 
-def build_future_forecast_chart(result, n_days: int):
+def build_future_forecast_chart(result, n_days: int, currency_symbol: str = "$", currency_name: str = "USD"):
     import pandas as pd
     last_actual_date = result.history["Date"].iloc[-1]
     history_tail = result.history[["Date", "Close"]].tail(60).copy()
@@ -136,21 +145,22 @@ def build_future_forecast_chart(result, n_days: int):
     )
     fig.update_layout(
         title=f"{result.ticker} — {n_days}-Day Future Price Forecast",
-        margin={"l": 20, "r": 20, "t": 55, "b": 20},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        title_font={"color": "#1f1a17"},
+        margin={"l": 40, "r": 20, "t": 55, "b": 40},
+        paper_bgcolor="#fffaf4",
+        plot_bgcolor="#fffaf4",
         xaxis_title="Date",
-        yaxis_title="Price (USD)",
-        legend={"orientation": "h", "y": 1.08, "x": 0},
-        font={"color": "#000000"},
+        yaxis_title=f"Price ({currency_name})",
+        legend={"orientation": "h", "y": 1.08, "x": 0, "font": {"color": "#1f1a17"}},
+        font={"color": "#1f1a17"},
         height=450,
     )
-    fig.update_xaxes(showgrid=False, tickfont={"color": "#000000"}, title_font={"color": "#000000"})
-    fig.update_yaxes(gridcolor="rgba(31,26,23,0.08)", tickfont={"color": "#000000"}, title_font={"color": "#000000"})
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(31,26,23,0.06)", tickfont={"color": "#1f1a17"}, title_font={"color": "#1f1a17"})
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(31,26,23,0.10)", tickfont={"color": "#1f1a17"}, title_font={"color": "#1f1a17"})
     return fig, future_df
 
 
-def build_prediction_chart(test_data, ticker: str):
+def build_prediction_chart(test_data, ticker: str, currency_name: str = "USD"):
     recent = test_data.tail(120).copy()
     fig = go.Figure()
     fig.add_trace(
@@ -173,17 +183,18 @@ def build_prediction_chart(test_data, ticker: str):
     )
     fig.update_layout(
         title=f"{ticker} Actual vs Predicted Close",
-        margin={"l": 20, "r": 20, "t": 55, "b": 20},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        title_font={"color": "#1f1a17"},
+        margin={"l": 40, "r": 20, "t": 55, "b": 40},
+        paper_bgcolor="#fffaf4",
+        plot_bgcolor="#fffaf4",
         xaxis_title="Date",
-        yaxis_title="Price (USD)",
-        legend={"orientation": "h", "y": 1.08, "x": 0},
-        font={"color": "#D61F1F"},
+        yaxis_title=f"Price ({currency_name})",
+        legend={"orientation": "h", "y": 1.08, "x": 0, "font": {"color": "#1f1a17"}},
+        font={"color": "#1f1a17"},
         height=430,
     )
-    fig.update_xaxes(showgrid=False, tickfont={"color": "#000000"}, title_font={"color": "#000000"})
-    fig.update_yaxes(gridcolor="rgba(31, 26, 23, 0.08)", tickfont={"color": "#000000"}, title_font={"color": "#000000"})
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(31, 26, 23, 0.06)", tickfont={"color": "#1f1a17"}, title_font={"color": "#1f1a17"})
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(31, 26, 23, 0.10)", tickfont={"color": "#1f1a17"}, title_font={"color": "#1f1a17"})
     return fig
 
 
@@ -369,21 +380,31 @@ def inject_styles():
             font-weight: 700;
             color: var(--ink);
         }
-        .stMetric {
+        .metric-card {
+            background: rgba(255, 255, 255, 0.6);
             border: 1px solid var(--line);
             border-radius: 20px;
-            padding: 0.8rem;
+            padding: 1rem 1.1rem;
             box-shadow: 0 10px 30px rgba(31, 26, 23, 0.05);
         }
-        div[data-testid="stMetricLabel"] {
-            color: blue;
+        .metric-label {
+            color: #0e7490;
+            font-size: 0.85rem;
             font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.3rem;
         }
-        div[data-testid="stMetricValue"] {
-            color: #1d4ed8;
+        .metric-val {
+            color: #1f1a17;
+            font-size: 1.65rem;
+            font-weight: 800;
+            line-height: 1.2;
         }
-        div[data-testid="stMetricDelta"] {
-            color: #1d4ed8;
+        .metric-delta {
+            font-size: 0.88rem;
+            font-weight: 700;
+            margin-top: 0.2rem;
         }
         .chart-shell {
             background: var(--panel-strong);
@@ -426,18 +447,61 @@ def inject_styles():
             color: var(--muted);
             font-size: 0.86rem;
         }
+        /* ===== TAB OVERRIDES (nuclear) ===== */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 0.5rem;
+            gap: 0.5rem !important;
+            border-bottom: 2px solid rgba(31,26,23,0.08) !important;
         }
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 999px;
-            background: rgba(255,255,0,0.55);
-            padding: 0.5rem 1rem;
-            color: var(--ink);
-            border: 1px solid rgba(31, 26, 23, 0.07);
+        /* Default tab text — dark color */
+        .stTabs button[data-baseweb="tab"] {
+            color: #1f1a17 !important;
+            background: rgba(255, 250, 244, 0.7) !important;
+            border-radius: 999px !important;
+            border: 1px solid rgba(31, 26, 23, 0.07) !important;
+            font-weight: 600 !important;
+            padding: 0.5rem 1.1rem !important;
         }
-        .st-emotion-cache-1p09rwb {
-            color: #000000 !important;
+        .stTabs button[data-baseweb="tab"] p,
+        .stTabs button[data-baseweb="tab"] span,
+        .stTabs button[data-baseweb="tab"] div {
+            color: #1f1a17 !important;
+        }
+        /* Hover — teal */
+        .stTabs button[data-baseweb="tab"]:hover {
+            background: rgba(14, 116, 144, 0.12) !important;
+            border-color: rgba(14, 116, 144, 0.3) !important;
+        }
+        .stTabs button[data-baseweb="tab"]:hover,
+        .stTabs button[data-baseweb="tab"]:hover p,
+        .stTabs button[data-baseweb="tab"]:hover span,
+        .stTabs button[data-baseweb="tab"]:hover div {
+            color: #0e7490 !important;
+        }
+        /* Selected tab — teal bold */
+        .stTabs button[data-baseweb="tab"][aria-selected="true"] {
+            background: linear-gradient(135deg, rgba(14, 116, 144, 0.18), rgba(29, 78, 216, 0.12)) !important;
+            border-color: #0e7490 !important;
+            font-weight: 700 !important;
+        }
+        .stTabs button[data-baseweb="tab"][aria-selected="true"],
+        .stTabs button[data-baseweb="tab"][aria-selected="true"] p,
+        .stTabs button[data-baseweb="tab"][aria-selected="true"] span,
+        .stTabs button[data-baseweb="tab"][aria-selected="true"] div {
+            color: #0e7490 !important;
+        }
+        /* Kill red highlight bar → teal */
+        .stTabs [data-baseweb="tab-highlight"] {
+            background-color: #0e7490 !important;
+        }
+        .stTabs [data-baseweb="tab-border"] {
+            display: none !important;
+        }
+        /* Force override any remaining red from Streamlit theme */
+        .stTabs [role="tab"] {
+            color: #1f1a17 !important;
+        }
+        .stTabs [role="tab"][aria-selected="true"] {
+            color: #0e7490 !important;
         }
         @keyframes fadeUp {
             from {
@@ -580,6 +644,8 @@ if run_prediction or ticker:
             with st.spinner(f"Fetching data and running the LSTM model for {cleaned_ticker}..."):
                 result = get_prediction_data(cleaned_ticker, n_forecast_days)
 
+            csym, cname = currency_info(cleaned_ticker)
+
             change = result.next_close_prediction - result.latest_close
             delta_percent = (change / result.latest_close) * 100 if result.latest_close else 0.0
             high_price = float(result.history["High"].tail(30).max())
@@ -600,11 +666,32 @@ if run_prediction or ticker:
                 unsafe_allow_html=True,
             )
 
-            metric_1, metric_2, metric_3, metric_4 = st.columns(4)
-            metric_1.metric("Latest Close", f"${result.latest_close:,.2f}")
-            metric_2.metric("Predicted Next Close", f"${result.next_close_prediction:,.2f}")
-            metric_3.metric("Expected Change", f"{change:,.2f}", f"{delta_percent:.2f}%")
-            metric_4.metric("30-Day Avg Close", f"${avg_close:,.2f}")
+            delta_color = "#0f766e" if change >= 0 else "#b91c1c"
+            delta_arrow = "▲" if change >= 0 else "▼"
+            st.markdown(
+                f"""
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem; margin-bottom:1.2rem;">
+                    <div class="metric-card">
+                        <div class="metric-label">Latest Close</div>
+                        <div class="metric-val">{csym}{result.latest_close:,.2f}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Predicted Next Close</div>
+                        <div class="metric-val">{csym}{result.next_close_prediction:,.2f}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Expected Change</div>
+                        <div class="metric-val">{change:,.2f}</div>
+                        <div class="metric-delta" style="color:{delta_color}">{delta_arrow} {delta_percent:.2f}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">30-Day Avg Close</div>
+                        <div class="metric-val">{csym}{avg_close:,.2f}</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             overview_tab, prediction_tab, forecast_tab, data_tab = st.tabs(
                 ["Market Overview", "Prediction View", "📅 Future Forecast", "Recent Data"]
@@ -612,26 +699,20 @@ if run_prediction or ticker:
 
             with overview_tab:
                 st.markdown('<div class="result-label">Candlestick Trend and Moving Averages</div>', unsafe_allow_html=True)
-                st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
-                st.plotly_chart(build_candlestick_chart(result.history, result.ticker), use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.plotly_chart(build_candlestick_chart(result.history, result.ticker, currency_name=cname), use_container_width=True)
                 info_1, info_2, info_3 = st.columns(3)
-                info_1.info(f"30-day high: ${high_price:,.2f}")
-                info_2.info(f"30-day low: ${low_price:,.2f}")
+                info_1.info(f"30-day high: {csym}{high_price:,.2f}")
+                info_2.info(f"30-day low: {csym}{low_price:,.2f}")
                 info_3.info("Candles show open, high, low, and close for each trading day.")
 
                 st.markdown('<div class="result-label">Full History Close Trend</div>', unsafe_allow_html=True)
-                st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
-                st.pyplot(plot_close_and_averages(result.history), use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.pyplot(plot_close_and_averages(result.history, currency_name=cname), use_container_width=True)
 
             with prediction_tab:
                 left_col, right_col = st.columns([2.1, 1])
                 with left_col:
                     st.markdown('<div class="result-label">Actual Price vs Model Prediction</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
-                    st.plotly_chart(build_prediction_chart(result.test_data, result.ticker), use_container_width=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    st.plotly_chart(build_prediction_chart(result.test_data, result.ticker, currency_name=cname), use_container_width=True)
                 with right_col:
                     trend_text = "Bullish bias" if change >= 0 else "Bearish bias"
                     confidence_note = (
@@ -652,7 +733,7 @@ if run_prediction or ticker:
                                 </div>
                                 <div class="summary-row">
                                     <div class="mini-label">Model Signal</div>
-                                    <div class="stat-value">{change:+.2f} USD</div>
+                                    <div class="stat-value">{change:+.2f} {cname}</div>
                                 </div>
                                 <div class="summary-row">
                                     <div class="mini-label">Interpretation</div>
@@ -675,10 +756,8 @@ if run_prediction or ticker:
                     f'<div class="result-label">LSTM {n_forecast_days}-Day Future Price Forecast</div>',
                     unsafe_allow_html=True,
                 )
-                fc_chart, future_df = build_future_forecast_chart(result, n_forecast_days)
-                st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
+                fc_chart, future_df = build_future_forecast_chart(result, n_forecast_days, currency_symbol=csym, currency_name=cname)
                 st.plotly_chart(fc_chart, use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
 
                 fc_col1, fc_col2, fc_col3 = st.columns(3)
                 fc_col1.metric("Forecast Start", str(future_df["Date"].iloc[0].date()))
@@ -687,19 +766,19 @@ if run_prediction or ticker:
                 fc_change_pct = ((fc_end_price - result.latest_close) / result.latest_close) * 100
                 fc_col3.metric(
                     f"Price on Day {n_forecast_days}",
-                    f"${fc_end_price:,.2f}",
+                    f"{csym}{fc_end_price:,.2f}",
                     f"{fc_change_pct:+.2f}% vs today",
                 )
 
                 st.markdown('<div class="result-label">Daily Forecast Table</div>', unsafe_allow_html=True)
                 display_df = future_df.copy()
                 display_df["Date"] = display_df["Date"].dt.strftime("%Y-%m-%d")
-                display_df["Forecast Price (USD)"] = display_df["Forecast"].map(lambda x: f"${x:,.2f}")
+                display_df[f"Forecast Price ({cname})"] = display_df["Forecast"].map(lambda x: f"{csym}{x:,.2f}")
                 display_df["Change vs Today"] = display_df["Forecast"].map(
                     lambda x: f"{((x - result.latest_close)/result.latest_close)*100:+.2f}%"
                 )
                 st.dataframe(
-                    display_df[["Date", "Forecast Price (USD)", "Change vs Today"]].reset_index(drop=True),
+                    display_df[["Date", f"Forecast Price ({cname})", "Change vs Today"]].reset_index(drop=True),
                     use_container_width=True,
                     height=320,
                 )
